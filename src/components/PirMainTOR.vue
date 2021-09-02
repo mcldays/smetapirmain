@@ -100,11 +100,10 @@ import {
   Entity_AttributeValueModel,
   AttributeEditorModel,
   VisualTreeNodeQueryModel,
-  VisualTreeNodeQueryParameter, TreeNodeReadModel,
+  VisualTreeNodeQueryParameter,
   GlobalDisplayFormParams, DisplayTypeEnum,
 
 } from "@rnstream/ui";
-import TableWithChilds from "./TableWithChilds.vue"
 import VDialogWrapper from '@/components/Common/VDialogWrapper/VDialogWrapper.vue';
 import Axios, {AxiosPromise, AxiosResponse} from "axios";
 import Clonning from "@rnstream/ui/src/helpers/Clonning";
@@ -120,7 +119,6 @@ import {VisualFormActionReadData} from "@/models/generated/api.generated.clients
 @Component({
   name: "PirMainTOR",
   components: {
-    TableWithChilds,
     RnToolbar,
     VDialogWrapper,
     MultiSelectEntityTreeView,
@@ -226,14 +224,13 @@ export default class PirMainTOR extends Vue {
   //возможные типы сущностей для ивентов тулбара
   private possibleEntityTypes: any
 
-  //--------------- default events
-  // event для TabView, создание сущности
+
   entityCreated(data: any): any {
     this.dialog = false;
     return data;
   }
 
-  // event для TabView, определяет nodePath для добавляемого или редактируемого элемента
+
   emitNavigate(nodePath: VisualTreeNodePathModel[], entityTypeNode?: EntityTypeNodeModel) {
     this.$emit("navigate", nodePath, entityTypeNode);
   }

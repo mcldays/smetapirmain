@@ -1,36 +1,25 @@
 <template>
   <div class="smetaForm">
-    <div class="multiTable">
-      <div class="toolbarTabs">
-        <slot name="CustomToolbar">
-          <RnToolbar ref="mainTableToolbar" v-show="this.hiddenBaseToolbar"/> <!-- <RnToolbar ref="slotTableToolbar" />-->
-        </slot>
-        <!-- TODO addOrUpdate ошибка здесь выскакивает, поскольку слот переоределяет тулбар,
-             TODO в который мы передавали экшны внутри трехтаблички-->
-        <!--        <RnToolbar ref="mainTableToolbar" />-->
-      </div>
-      <EntityTableForm
-          v-if="nodePath.length > 0"
-          :treeId="treeId"
-          :nodePath="nodePath"
-          :entityController="entityController"
-          :visualTreeController="visualTreeController"
-          :fileController="fileController"
-          :isHideToolbar="false"
-          :isHideStatusbar="true"
-          :workflowService="workflowService"
-          :cascadeMode="3"
-          :cascade="true"
-          @rowClick="rowclick"
-          style="--viewport-height: 100%;--toolbar-height: 0px;"
-          ref="mainTable"
-      />
-
-    </div>
-
-
-
-
+    <RnToolbar ref="mainTableToolbar" />
+    <EntityTableForm
+        v-if="nodePath.length > 0"
+        :treeId="treeId"
+        :nodePath="nodePath"
+        :entityController="entityController"
+        :visualTreeController="visualTreeController"
+        :fileController="fileController"
+        :entity-type-picker="entityTypePicker"
+        :isHideToolbar="false"
+        :isHideStatusbar="false"
+        :workflowService="workflowService"
+        :cascade-mode="2"
+        :cascade-max-depth="4"
+        :cascade="true"
+        :edit-mode="EditMode.InlineEditing"
+        @rowClick="rowclick"
+        style="--viewport-height: 100%;--toolbar-height: 0px;"
+        ref="mainTable"
+    />
   </div>
 </template>
 <script lang="ts">
@@ -39,14 +28,9 @@ import {Component, Prop, Vue, Watch, Emit,} from "vue-property-decorator";
 // импорты компонентов из РН-СТРИМ
 // табличный компонент EntityTableForm.vue
 import {EntityTableForm } from "@rnstream/tableentityform";
-// импорты табличного компонента с вкладками и карточкой (TabView) и измененного EntityTableForm с логикой даблклика(TableWithCard)
-import {TabView, TabViewModel} from "@rnstream/complextableform";
-
+import {EditMode} from '@rnstream/tableentityform/src/data/enums/EditMode';
 
 import {
-  DisplayTypeEnum,
-  EntityEditorData,
-  EntityTypeNodeModel,
   FileController,
   IEntityEditor,
   IEntityTypePicker,
@@ -55,14 +39,11 @@ import {
   RnToolbarGroup,
   VisualTreeNodePathModel,
   VisualTreeNodeQueryModel,
-  VisualTreeNodeQueryParameter,
   VisualTreeController,
   EntityConnectionValue,
   RnEntityEditorWrapper,
-  EntityEditorInfoObject,
   EntityMasterModel,
-  EntityModel,
-  PageModel
+
 } from "@rnstream/ui";
 
 
@@ -75,7 +56,6 @@ import Clonning from "@rnstream/ui/src/helpers/Clonning";
   name: "TableWithChilds",
   components: {
     RnToolbar,
-    TabView,
     EntityTableForm,
     RnEntityEditorWrapper
   }
@@ -109,15 +89,11 @@ export default class TableWithChilds extends Vue {
 
   // Признак видимости тулбара таблицы
   @Prop() isHideToolbar: boolean;
-
-  // табличная модель
-  @Prop() data: TabViewModel;
-
   @Prop() hiddenBaseToolbar : boolean
 
   public entityMasterModel: EntityMasterModel = null;
   public conValues : EntityConnectionValue[] = []
-
+  private EditMode = EditMode
 
 
   // триггер скрытия таблиц
@@ -126,50 +102,40 @@ export default class TableWithChilds extends Vue {
   // массив для хранения пути для первой вложенной папки (Коэффициенты)
   public firstChildPath: VisualTreeNodePathModel[] = new Array<VisualTreeNodePathModel>();
 
-  // табличная модель для первой вложенной папки (Коэффициенты)
-  public firstChildData: TabViewModel;
 
   // массив для хранения пути для второй вложенной папки (Разделы ТОС)
   public secondChildPath: VisualTreeNodePathModel[] = new Array<VisualTreeNodePathModel>();
 
-  // табличная модель для второй вложенной папки (Разделы ТОС)
-  public secondChildData: TabViewModel;
 
 
 
+  async mountToolbar(mainTableToolbarGroup :RnToolbarGroup ){
+    (this.$refs.mainTable as any).generateToolbarButtons(mainTableToolbarGroup);
+  }
 
   async rowclick(entityData: any): Promise<void> {
 
-    // зануляем результаты предыдущего клика
+    if(entityData.Depth > 1){
+      this.$emit("rowClick", entityData);
+    }
+    else{
+      this.$emit("rowClickDown", entityData)
+    }
 
-    //получить текущий путь кликнутой строки
-    const entityNodePath = this.getAppendedNodePath(
-        entityData.NodeId,
-        Number(entityData.EntityId),
-        this.nodePath
-    );
+    console.log(entityData, "Обьект строки")
 
-    this.$emit("rowClick", entityNodePath);
-    this.$emit("rowClickDown", entityData)
-    //получить данные кликнутой строки
-    const clickedEntityEditorData = new EntityEditorData(
-        Number(entityData.EntityTypeId),
-        Number(entityData.EntityId),
-        entityNodePath
-    );
   }
 
   // метод получения текущего пути выбранной строки
   getAppendedNodePath(
       nodeId: number,
       entityId: number,
-      nodePath: VisualTreeNodePathModel[]
+
   ): VisualTreeNodePathModel[] {
-    let localNodePath = this.$deepCopy(nodePath) as VisualTreeNodePathModel[];
+    let localNodePath = this.$deepCopy(this.nodePath) as VisualTreeNodePathModel[];
     //let localNodePath: VisualTreeNodePathModel[] = Clonning.deepCopy(nodePath);
-    let parentNodeId = localNodePath[localNodePath.length - 1].NodeId;
     localNodePath.push(
-        new VisualTreeNodePathModel(nodeId, entityId, parentNodeId, null, null)
+        new VisualTreeNodePathModel(nodeId, entityId, null, null, null)
     );
     return localNodePath;
   }

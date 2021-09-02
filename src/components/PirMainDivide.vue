@@ -104,7 +104,6 @@ import {
   VisualTreeNodeQueryParameter,
 
 } from "@rnstream/ui";
-import {TabViewModel} from "@rnstream/complextableform";
 import TableWithChilds from "./TableWithChilds.vue"
 import VDialogWrapper from '@/components/Common/VDialogWrapper/VDialogWrapper.vue';
 import Axios, {AxiosPromise, AxiosResponse} from "axios";
@@ -172,8 +171,6 @@ export default class PirMainDivide extends Vue {
   // Признак видимости тулбара таблицы
   @Prop() isHideToolbar: boolean;
 
-  // табличная модель
-  @Prop() data: TabViewModel;
 
   // триггеры для nodePathChanged
   private EditMode = EditMode
@@ -205,14 +202,11 @@ export default class PirMainDivide extends Vue {
   private possibleEntityTypes: any
 
 
-  //--------------- default events
-  // event для TabView, создание сущности
   entityCreated(data: any): any {
     this.dialog = false;
     return data;
   }
 
-  // event для TabView, определяет nodePath для добавляемого или редактируемого элемента
   emitNavigate(nodePath: VisualTreeNodePathModel[], entityTypeNode?: EntityTypeNodeModel) {
     this.$emit("navigate", nodePath, entityTypeNode);
   }
