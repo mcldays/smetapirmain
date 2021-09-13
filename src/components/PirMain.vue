@@ -212,7 +212,6 @@ export default class PirMain extends Vue {
 
   ]
 
-
   //возможные типы сущностей для ивентов тулбара
   private possibleEntityTypes: any
 
@@ -292,6 +291,7 @@ export default class PirMain extends Vue {
 
     model.push(new VisualTreeNodePathModel(entityData.NodeId, entityData.EntityId,
         entityData.ParentNode.EntityId, null, entityData.Label))
+        model[model.length-1].Name = entityData.EntityName
 
     this.emitNavigateDeep(model);
   }
@@ -534,21 +534,6 @@ export default class PirMain extends Vue {
     //this.entityTypeModel.push(new VisualTreeNodePathModel(response[0].NodeId,response[0].EntityId,response[0].ParentNodeId, null , null))
     //console.log(this.entityTypeModel,"Энтити тайп модел")
   }
-
-
-  // checkConnection and entityMasterModel
-  // async preparedDataForDialog()
-  // {
-  //   if (this.connection)
-  //   {
-  //     console.log("checked")
-  //     return true;
-  //   }
-  //   else {
-  //     console.log("notReady")
-  //     return false;
-  //   }
-  // }
 
   // изменение выбранных значений
   multiselectValuesChange(values: IdNameTypeModel[]): void {
@@ -827,6 +812,7 @@ export default class PirMain extends Vue {
   }
   // сохраняем модель и уведомляем пользователя о сохранении
   async entityCreatedForModel(response: IIdNameNodePathModel): Promise<EntityCreatedEventArg> {
+    await (this.$refs.mainTable as any).refresh();
     console.log("entityCreatedForModel_response", response)
     //this.entityMasterModelForRollback = (await this.entityController.ProtectedGetMasterModel(this.localEntityTypeId, response.Id, this.treeId, response.NodePath)).data.Data[0];
     //console.log("entityMasterModelForRollback", this.entityMasterModelForRollback)
@@ -835,7 +821,7 @@ export default class PirMain extends Vue {
     this.showSuccess(this.$t('Расценка успешно добавлена') as string);
 
     // TODO разобраться как рефрешить таблицу
-    //this.refresh();
+
 
     return {
       Id: response.Id,

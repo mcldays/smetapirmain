@@ -12,6 +12,7 @@
         :isHideToolbar="false"
         :isHideStatusbar="false"
         :workflowService="workflowService"
+        :is-hide-folders="true"
         :cascade-mode="2"
         :cascade-max-depth="4"
         :cascade="true"
@@ -124,6 +125,10 @@ export default class TableWithChilds extends Vue {
 
     console.log(entityData, "Обьект строки")
 
+  }
+
+ async refresh(){
+    await (this.$refs.mainTable as any).refresh();
   }
 
   // метод получения текущего пути выбранной строки

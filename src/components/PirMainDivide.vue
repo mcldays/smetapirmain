@@ -275,7 +275,7 @@ export default class PirMainDivide extends Vue {
         Number(entityData.EntityId),
         this.nodePath
     );
-
+    entityNodePath[entityNodePath.length-1].Name = entityData.EntityName
     this.emitNavigateDeep(entityNodePath);
   }
 

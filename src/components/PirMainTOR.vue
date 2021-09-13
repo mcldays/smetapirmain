@@ -11,7 +11,7 @@
         :entity-type-picker="entityTypePicker"
         :isHideToolbar="false"
         :isHideStatusbar="false"
-        :is-hide-folders="false"
+        :is-hide-folders="true"
         :cascade-max-depth="5"
         :workflowService="workflowService"
         :edit-mode="EditMode.InlineEditing"
@@ -183,8 +183,10 @@ export default class PirMainTOR extends Vue {
   private buttonState : boolean = false;
   private TORDepthOne : VisualTreeNodePathModel[];
   private TORDepthTwo : VisualTreeNodePathModel[];
-  private TORDepthThree : VisualTreeNodePathModel[]
-  private TORNodePath : VisualTreeNodePathModel[];
+  private TORDepthThree : VisualTreeNodePathModel[];
+  private TORDepthFour : VisualTreeNodePathModel[];
+  private TORNodePathOnString : VisualTreeNodePathModel[];
+  private TORNodePathOnSection : VisualTreeNodePathModel[]
   private SectionList : string[] = [
     "Строка сметы по форме 2П",
     "Строка сметы на ИЭИ",
@@ -344,18 +346,26 @@ export default class PirMainTOR extends Vue {
         this.TORDepthThree = this.$deepCopy(this.TORDepthTwo) as VisualTreeNodePathModel[]
         this.TORDepthThree.push(new VisualTreeNodePathModel(entityData.NodeId, entityData.EntityId,
             entityData.ParentNode.EntityId, null, entityData.Label));
+        this.TORDepthThree[this.TORDepthThree.length-1].Name = entityData.EntityName
         break
       }
+      case 4:{
+        this.TORDepthFour = this.$deepCopy(this.TORDepthThree) as VisualTreeNodePathModel[]
+        this.TORDepthFour.push(new VisualTreeNodePathModel(entityData.NodeId, entityData.EntityId,
+            entityData.ParentNode.EntityId, null, entityData.Label));
+        this.TORDepthFour[this.TORDepthFour.length-1].Name = entityData.EntityName
+      }
     }
-
     if(this.TORDepthThree !=null){
-      let model = await this.getNode(this.TORDepthThree) as any
-      this.TORNodePath = this.$deepCopy(this.TORDepthThree) as VisualTreeNodePathModel[]
-      this.TORNodePath.push(new VisualTreeNodePathModel(model[0].NodeId, model[0].EntityId, null, null, null))
-      console.log(this.TORNodePath,"валидная модель");
+      this.TORNodePathOnSection = this.$deepCopy(this.TORDepthThree) as VisualTreeNodePathModel[]
+      this.emitNavigateDeep(this.TORNodePathOnSection);
+      if(this.TORDepthFour !=null){
+        this.TORNodePathOnString = this.$deepCopy(this.TORDepthFour) as VisualTreeNodePathModel[]
+        console.log(this.TORNodePathOnString,"валидная модель 4 уровень");
+        this.emitNavigateDeep(this.TORNodePathOnString);
+        this.TORDepthFour = null;
+      }
     }
-
-    this.emitNavigateDeep(this.TORNodePath);
   }
 
 
@@ -489,10 +499,10 @@ export default class PirMainTOR extends Vue {
 
    let possibleEntityTypes = await this.visualTreeController.GetEntityTypes(
         this.treeId,
-        this.TORNodePath
+        this.TORNodePathOnSection
     );
 
-   let model =  this.$deepCopy(this.TORNodePath) as VisualTreeNodePathModel[]
+   let model =  this.$deepCopy(this.TORNodePathOnSection) as VisualTreeNodePathModel[]
    model.pop()
    let entityTypeNode  = possibleEntityTypes.data.Data.find(capt => capt.Caption == "ТОР. Строка фактических затрат")
     this.showEntityEditorForCreation(entityTypeNode, model);
@@ -535,10 +545,10 @@ export default class PirMainTOR extends Vue {
 
     let possibleEntityTypes = await this.visualTreeController.GetEntityTypes(
         this.treeId,
-        this.TORNodePath
+        this.TORNodePathOnSection
     );
 
-    let model =  this.$deepCopy(this.TORNodePath) as VisualTreeNodePathModel[]
+    let model =  this.$deepCopy(this.TORNodePathOnSection) as VisualTreeNodePathModel[]
     model.pop()
     let entityTypeNode  = possibleEntityTypes.data.Data.find(capt => capt.Caption == "ТОР. Строка командировочных расходов")
     this.showEntityEditorForCreation(entityTypeNode, model);
@@ -589,7 +599,7 @@ export default class PirMainTOR extends Vue {
 
     this.possibleEntityTypes = await this.visualTreeController.GetEntityTypes(
         this.treeId,
-        this.TORNodePath
+        this.TORNodePathOnSection
     );
 
     let sectionName = "ТОР. Строка на основе справ. РиУ, КО и ОИ"
@@ -605,7 +615,7 @@ export default class PirMainTOR extends Vue {
     // );
     // console.log("nodes", nodes)
     // передаем EntityEditorData для диалога (entityMasterModel)
-    this.dataForEntityModel = new EntityEditorData(this.entityTypeNode.EntityTypeId, null, this.TORNodePath)
+    this.dataForEntityModel = new EntityEditorData(this.entityTypeNode.EntityTypeId, null, this.TORNodePathOnSection)
     console.log("dataForEntityModel", this.dataForEntityModel)
 
     // не уверен этот ли нужно передавать
@@ -710,18 +720,18 @@ export default class PirMainTOR extends Vue {
 
     if (this.localEntityId > 0) {
       if (this.treeId && this.localNodePath) {
-        this.entityController.ProtectedGetMasterModel(this.localEntityTypeId, this.localEntityId, this.treeId, this.TORNodePath)
+        this.entityController.ProtectedGetMasterModel(this.localEntityTypeId, this.localEntityId, this.treeId, this.TORNodePathOnSection)
             .then((response) => {this.gotMasterEntityModel(response);})
             .catch(error => {this.showError(error);
             });
       } else {
-        this.visualTreeController.GetMasterModelForNodeId(this.localEntityTypeId, this.treeId, this.TORNodePath, this.entityTypeNode.NodeId)
+        this.visualTreeController.GetMasterModelForNodeId(this.localEntityTypeId, this.treeId, this.TORNodePathOnSection, this.entityTypeNode.NodeId)
             .then(this.gotMasterEntityModel)
       }
     }
     else {
       console.log("localNodePath",this.localNodePath)
-      this.visualTreeController.GetMasterModelForNodeId(this.localEntityTypeId, this.treeId, this.TORNodePath, this.entityTypeNode.NodeId)
+      this.visualTreeController.GetMasterModelForNodeId(this.localEntityTypeId, this.treeId, this.TORNodePathOnSection, this.entityTypeNode.NodeId)
           .then((response:any) => { this.gotMasterEntityModel(response);})
           .catch(error => { this.showError(error) });
     }
