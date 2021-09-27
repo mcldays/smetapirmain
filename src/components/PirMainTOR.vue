@@ -22,6 +22,16 @@
         style="--viewport-height: 100%;--toolbar-height: 0px;"
         ref="mainTable"
     />
+    <div style="display: flex; padding: 10px 0px 0px 5px;"
+         v-if="this.preloaderState">
+      <v-progress-circular
+          indeterminate
+          color="amber"
+      ></v-progress-circular>
+      <div class="grey--text mb-2" style="margin-left: 15px;">
+        Ваша расценка добавляется, пожалуйста, подождите...
+      </div>
+    </div>
 
     <VDialogWrapper v-model="treeDialogOpened" :title="$t('Выберите строку справочника работ')" :width = 1600 scrollable>
       <MultiSelectEntityTreeView
@@ -45,7 +55,7 @@
         v-model="this.dialog">
       <v-card>
         <v-card-title>
-          Добавить строку фактических затрат
+          Добавить строку
         </v-card-title>
     <GlobalDisplayForm :options="formOptions"
                        style="flex-basis: 100%; overflow: hidden; padding: 20px"
@@ -187,6 +197,7 @@ export default class PirMainTOR extends Vue {
   private TORDepthFour : VisualTreeNodePathModel[];
   private TORNodePathOnString : VisualTreeNodePathModel[];
   private TORNodePathOnSection : VisualTreeNodePathModel[]
+  private preloaderState : boolean = false;
   private SectionList : string[] = [
     "Строка сметы по форме 2П",
     "Строка сметы на ИЭИ",
@@ -892,6 +903,7 @@ export default class PirMainTOR extends Vue {
 
     // создаем модель через entityController
     if (this.entityModel) {
+      this.preloaderState = !this.preloaderState
       //return this.entityController.createEntity(this.entityModel)
       return this.createEntity(this.entityModel) //visualTreeNodeIdForCreation = 41628
           .then(this.entityCreatedForModel)
@@ -931,6 +943,8 @@ export default class PirMainTOR extends Vue {
   }
   // сохраняем модель и уведомляем пользователя о сохранении
   async entityCreatedForModel(response: IIdNameNodePathModel): Promise<EntityCreatedEventArg> {
+    this.preloaderState = !this.preloaderState
+    await (this.$refs.mainTable as any).refresh();
     console.log("entityCreatedForModel_response", response)
     //this.entityMasterModelForRollback = (await this.entityController.ProtectedGetMasterModel(this.localEntityTypeId, response.Id, this.treeId, response.NodePath)).data.Data[0];
     //console.log("entityMasterModelForRollback", this.entityMasterModelForRollback)
@@ -973,7 +987,7 @@ export default class PirMainTOR extends Vue {
 
   // уведомление для ошибки
   showError(message) {
-
+    this.preloaderState = !this.preloaderState
     if (this.$notification) {
       this.$notification.NetworkError(message);
     }

@@ -1,6 +1,5 @@
 <template>
   <div class="smetaForm">
-    <RnToolbar ref="mainTableToolbar" />
     <EntityTableForm
         v-if="nodePath.length > 0"
         :treeId="treeId"
@@ -14,7 +13,7 @@
         :workflowService="workflowService"
         :is-hide-folders="true"
         :cascade-mode="2"
-        :cascade-max-depth="4"
+        :cascadeMaxDepth="1"
         :cascade="true"
         :edit-mode="EditMode.InlineEditing"
         @rowClick="rowclick"

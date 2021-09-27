@@ -2,7 +2,6 @@
   <div class="smetaForm">
     <TableWithChilds
         :treeId="treeId"
-        :data="data"
         :nodePath="nodePath"
         :entityController="entityController"
         :visualTreeController="visualTreeController"
@@ -15,11 +14,19 @@
         @entityCreated="entityCreated"
         @navigate="emitNavigate"
         @rowClickDown="rowClickDown"
-        :hiddenBaseToolbar="false"
         ref="mainTable"
     >
     </TableWithChilds>
-
+    <div style="display: flex; padding: 10px 0px 0px 5px;"
+    v-if="this.preloaderState">
+      <v-progress-circular
+         indeterminate
+          color="amber"
+      ></v-progress-circular>
+      <div class="grey--text mb-2" style="margin-left: 15px;">
+        Ваша расценка добавляется, пожалуйста, подождите...
+      </div>
+    </div>
     <!-- TODO разобраться с подготовкой данных для диалога,
      TODO чтобы не нажимать на "добавить" два раза (treeId ловить по связи, а не напрямую)"-->
     <VDialogWrapper v-model="treeDialogOpened" :title="$t('Выберите строку справочника работ')" :width = 1600 scrollable>
@@ -43,7 +50,7 @@
         v-model="this.dialog">
       <v-card>
         <v-card-title>
-          Добавить строку фактических затрат
+          Добавить строку
         </v-card-title>
         <GlobalDisplayForm :options="formOptions"
                            style="flex-basis: 100%; overflow: hidden; padding: 20px"
@@ -96,7 +103,7 @@ import {
   Entity_AttributeValueModel,
   AttributeEditorModel,
   VisualTreeNodeQueryModel,
-  VisualTreeNodeQueryParameter,
+  VisualTreeNodeQueryParameter, RnToolbarItem,
 
 } from "@rnstream/ui";
 import TableWithChilds from "./TableWithChilds.vue"
@@ -170,6 +177,7 @@ export default class PirMain extends Vue {
   private selectedNodePath: VisualTreeNodePathModel[] = [];
   private formOptions: GlobalDisplayFormParams = null;
   private tableNodeCreateAllowed: boolean = true;
+  private deleteEntityNodePath : VisualTreeNodePathModel[] = [];
   private selectedEntityData: EntityEditorData = null;
   private selectedEntityName: string = "";
   private tableNodeHidden: boolean = false;
@@ -177,6 +185,7 @@ export default class PirMain extends Vue {
   private tableRowNodeHidden: boolean = false;
   private entityTypeNode :any ;
   private buttonState : boolean = false;
+  private preloaderState : boolean = false;
   private SectionList : string[] = [
     "Строка сметы по форме 2П",
     "Строка сметы на ИЭИ",
@@ -236,7 +245,7 @@ export default class PirMain extends Vue {
   async mountMainToolbar() {
     // Создаем группу кнопок для основной таблицы
     let mainTableToolbarGroup: RnToolbarGroup =
-      new RnToolbarGroup("Добавление расценок", "MainTableGroup", [
+      new RnToolbarGroup("Управление расценками", "MainTableGroup", [
         {
           Name: this.$t("Добавить") as string,
           Icon: "mdi-plus",
@@ -261,12 +270,23 @@ export default class PirMain extends Vue {
               Enabled: await this.canCreate(),
               Action: this.totalAllAdd
             },
-          ]
+            {
+              Name: this.$t("Раздел") as string,
+              Icon: "mdi-plus",
+              Enabled: await this.canCreate(),
+              Action: this.AddSection
+            },
+          ],
         },
       ]);
 
      await (this.$refs.mainTable as any).mountToolbar(mainTableToolbarGroup);
 
+  }
+
+ async DeleteEntity(){
+    let entityId = this.deleteEntityNodePath[this.deleteEntityNodePath.length - 1].EntityId
+    await this.entityController.deleteEntityProtected(entityId, this.treeId, this.deleteEntityNodePath)
   }
 
   //ивент для активации кнопок
@@ -292,7 +312,7 @@ export default class PirMain extends Vue {
     model.push(new VisualTreeNodePathModel(entityData.NodeId, entityData.EntityId,
         entityData.ParentNode.EntityId, null, entityData.Label))
         model[model.length-1].Name = entityData.EntityName
-
+    this.deleteEntityNodePath = this.$deepCopy(model) as VisualTreeNodePathModel[]
     this.emitNavigateDeep(model);
   }
 
@@ -430,12 +450,27 @@ export default class PirMain extends Vue {
     this.dialog = true;
   }
 
+  async AddSection(){
+    await this.showCardSection()
+    this.dialog = true;
+  }
+
   // getEntityTypeID
   async showCard(){
 
     let totalName =  await this.giveSectionName(this.TotalSectionList, 0, this.entityTypeModelDown)
     let entityTypeNode  = this.possibleEntityTypes.data.Data.find(capt => capt.Caption == totalName)
     this.showEntityEditorForCreation(entityTypeNode, this.entityTypeModelDown);
+  }
+
+  async showCardSection(){
+    this.possibleEntityTypes = await this.visualTreeController.GetEntityTypes(
+        this.treeId,
+        this.nodePath
+    );
+
+    let entityTypeNode  = this.possibleEntityTypes.data.Data.find(capt => capt.Caption == "Раздел сметы")
+    this.showEntityEditorForCreation(entityTypeNode, this.nodePath);
   }
 
   showEntityEditorForCreation(entityType: EntityTypeNodeModel, nodePath: VisualTreeNodePathModel[]) {
@@ -769,10 +804,9 @@ export default class PirMain extends Vue {
 
   // Сохранить данные в entityModel
   submitEntity(): Promise<any> {
-
-
     // создаем модель через entityController
     if (this.entityModel) {
+      this.preloaderState = !this.preloaderState;
       //return this.entityController.createEntity(this.entityModel)
       return this.createEntity(this.entityModel) //visualTreeNodeIdForCreation = 41628
           .then(this.entityCreatedForModel)
@@ -812,7 +846,9 @@ export default class PirMain extends Vue {
   }
   // сохраняем модель и уведомляем пользователя о сохранении
   async entityCreatedForModel(response: IIdNameNodePathModel): Promise<EntityCreatedEventArg> {
+    this.preloaderState = !this.preloaderState;
     await (this.$refs.mainTable as any).refresh();
+
     console.log("entityCreatedForModel_response", response)
     //this.entityMasterModelForRollback = (await this.entityController.ProtectedGetMasterModel(this.localEntityTypeId, response.Id, this.treeId, response.NodePath)).data.Data[0];
     //console.log("entityMasterModelForRollback", this.entityMasterModelForRollback)
@@ -855,7 +891,7 @@ export default class PirMain extends Vue {
 
   // уведомление для ошибки
   showError(message) {
-
+    this.preloaderState = !this.preloaderState
     if (this.$notification) {
       this.$notification.NetworkError(message);
     }

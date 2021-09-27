@@ -21,6 +21,16 @@
         style="--viewport-height: 100%;--toolbar-height: 0px;"
         ref="mainTable"
     />
+    <div style="display: flex; padding: 10px 0px 0px 5px;"
+         v-if="this.preloaderState">
+      <v-progress-circular
+          indeterminate
+          color="amber"
+      ></v-progress-circular>
+      <div class="grey--text mb-2" style="margin-left: 15px;">
+        Ваша расценка добавляется, пожалуйста, подождите...
+      </div>
+    </div>
 
     <!-- TODO разобраться с подготовкой данных для диалога,
      TODO чтобы не нажимать на "добавить" два раза (treeId ловить по связи, а не напрямую)"-->
@@ -46,7 +56,7 @@
         v-model="this.dialog">
       <v-card>
         <v-card-title>
-          Добавить строку фактических затрат
+          Добавить строку
         </v-card-title>
         <GlobalDisplayForm :options="formOptions"
                            style="flex-basis: 100%; overflow: hidden; padding: 20px"
@@ -181,6 +191,7 @@ export default class PirMainDivide extends Vue {
   private tableNodeHidden: boolean = false;
   private tableNodeEditAllowed: boolean = true;
   private tableRowNodeHidden: boolean = false;
+  private preloaderState : boolean = false;
   private entityTypeNode :any ;
   private SectionList : string[] = [
     "Строка сметы анализа на ИЭИ",
@@ -235,7 +246,7 @@ export default class PirMainDivide extends Vue {
         Action: null,
         Children: [
         {
-          Name: this.$t("Сметная строка") as string,
+          Name: this.$t("Добавить строку АСУТП") as string,
           Icon: "mdi-plus",
           Enabled: await this.canCreate(),
           Action: this.estimatedStringAdd
@@ -246,6 +257,12 @@ export default class PirMainDivide extends Vue {
           Enabled: await this.canCreate(),
           Action: this.totalAllAdd
         },
+          {
+            Name: this.$t("Добавить строку") as string,
+            Icon: "mdi-plus",
+            Enabled: await this.canCreate(),
+            Action: this.totalAllAddCommand
+          },
         ]}
       ]);
 
@@ -422,10 +439,21 @@ export default class PirMainDivide extends Vue {
     this.dialog = true;
   }
 
+  async totalAllAddCommand(){
+    await this.showCardCommand();
+    this.dialog = true;
+  }
+
   // getEntityTypeID
   async showCard() {
 
     let totalName = await this.giveSectionName(this.TotalList, 0)
+    let entityTypeNode = this.possibleEntityTypes.data.Data.find(capt => capt.Caption == totalName)
+    this.showEntityEditorForCreation(entityTypeNode, this.nodePath);
+  }
+
+  async showCardCommand(){
+    let totalName = await this.giveSectionName(this.SectionList, 1)
     let entityTypeNode = this.possibleEntityTypes.data.Data.find(capt => capt.Caption == totalName)
     this.showEntityEditorForCreation(entityTypeNode, this.nodePath);
   }
@@ -474,34 +502,11 @@ export default class PirMainDivide extends Vue {
   // ждем выбора entityTypeNode
   async preparedDataForDialog()
   {
-    // TODO Пока что багает, чтобы работало, сначала надо нажать на любую
-    // TODO из трех других кнопок и тогда работает правильно.
-    // TODO Сделал эту штуку, чтобы игнорировать и не вызывать entityTypePicker
-    // TODO надо разобраться как navigate работает у дефолтного события добавления
-    // получаем массив возможных классов(сущностей) для создания
-
-
-
-
     let sectionName = await this.giveSectionName(this.SectionList, 1)
-
-
-    // находим нужный id по Caption(Название класса)
     this.entityTypeNode = this.possibleEntityTypes.data.Data.find(capt => capt.Caption == sectionName)
-    // получаем массив возможных nodeId классов(сущностей) для создания
-    // let nodes = await this.visualTreeController.GetMasterModel(
-    //     entityTypeNode.EntityTypeId,
-    //     this.treeId,
-    //     this.nodePath
-    // );
-    // console.log("nodes", nodes)
-    // передаем EntityEditorData для диалога (entityMasterModel)
     this.dataForEntityModel = new EntityEditorData(this.entityTypeNode.EntityTypeId, null, this.nodePath)
     console.log("dataForEntityModel", this.dataForEntityModel)
-
-    // не уверен этот ли нужно передавать
     this.entityTypeId = this.entityTypeNode.EntityTypeId
-
     return true;
   }
 
@@ -512,20 +517,6 @@ export default class PirMainDivide extends Vue {
     //console.log(this.entityTypeModel,"Энтити тайп модел")
   }
 
-
-  // checkConnection and entityMasterModel
-  // async preparedDataForDialog()
-  // {
-  //   if (this.connection)
-  //   {
-  //     console.log("checked")
-  //     return true;
-  //   }
-  //   else {
-  //     console.log("notReady")
-  //     return false;
-  //   }
-  // }
 
   // изменение выбранных значений
   multiselectValuesChange(values: IdNameTypeModel[]): void {
@@ -765,6 +756,7 @@ export default class PirMainDivide extends Vue {
 
     // создаем модель через entityController
     if (this.entityModel) {
+      this.preloaderState = !this.preloaderState
       //return this.entityController.createEntity(this.entityModel)
       return this.createEntity(this.entityModel) //visualTreeNodeIdForCreation = 41628
           .then(this.entityCreatedForModel)
@@ -805,6 +797,8 @@ export default class PirMainDivide extends Vue {
   // сохраняем модель и уведомляем пользователя о сохранении
   async entityCreatedForModel(response: IIdNameNodePathModel): Promise<EntityCreatedEventArg> {
     console.log("entityCreatedForModel_response", response)
+    this.preloaderState = !this.preloaderState
+    await (this.$refs.mainTable as any).refresh();
     //this.entityMasterModelForRollback = (await this.entityController.ProtectedGetMasterModel(this.localEntityTypeId, response.Id, this.treeId, response.NodePath)).data.Data[0];
     //console.log("entityMasterModelForRollback", this.entityMasterModelForRollback)
 
@@ -846,7 +840,7 @@ export default class PirMainDivide extends Vue {
 
   // уведомление для ошибки
   showError(message) {
-
+    this.preloaderState = !this.preloaderState
     if (this.$notification) {
       this.$notification.NetworkError(message);
     }
