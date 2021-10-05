@@ -17,16 +17,6 @@
         ref="mainTable"
     >
     </TableWithChilds>
-    <div style="display: flex; padding: 10px 0px 0px 5px;"
-    v-if="this.preloaderState">
-      <v-progress-circular
-         indeterminate
-          color="amber"
-      ></v-progress-circular>
-      <div class="grey--text mb-2" style="margin-left: 15px;">
-        Ваша расценка добавляется, пожалуйста, подождите...
-      </div>
-    </div>
     <!-- TODO разобраться с подготовкой данных для диалога,
      TODO чтобы не нажимать на "добавить" два раза (treeId ловить по связи, а не напрямую)"-->
     <VDialogWrapper v-model="treeDialogOpened" :title="$t('Выберите строку справочника работ')" :width = 1600 scrollable>
@@ -61,7 +51,7 @@
           <v-btn
               color="primary"
               text
-              @click="dialog = false"
+              @click="this.closeDialog"
           >
             Закрыть
           </v-btn>
@@ -119,7 +109,7 @@ import {SiteUrl} from "@/components/Settings/SiteUrl";
 import {VisualFormActionReadData} from "@/models/generated/api.generated.clients";
 
 @Component({
-  name: "PirMain",
+  name: "PirMainExpert",
   components: {
     TableWithChilds,
     RnToolbar,
@@ -196,27 +186,27 @@ export default class PirMain extends Vue {
     "Строка сметы на ИКИ"
   ]
   private TotalSectionList : string[] = [
-      `Строка "Итого" по разделу сметы (2П)`,
-      `Строка "Итого" по разделу календарного плана`,
-      `Строка "Итого" по разделу комм. предложения`,
-      `Строка "Итого" по разделу сводной сметы`,
-      `Строка "Итого" по разделу сметы ИИ по форме 2П`,
-      `Строка "Итого" по разделу сметы ИКИ`,
-      `Строка "Итого" по разделу сметы ИЭИ`,
-      `Строка "Итого" по разделу сметы ОНЗТ`,
-      `Строка "Итого" по разделу сметы по форме 3П`
+    `Строка "Итого" по разделу сметы (2П)`,
+    `Строка "Итого" по разделу календарного плана`,
+    `Строка "Итого" по разделу комм. предложения`,
+    `Строка "Итого" по разделу сводной сметы`,
+    `Строка "Итого" по разделу сметы ИИ по форме 2П`,
+    `Строка "Итого" по разделу сметы ИКИ`,
+    `Строка "Итого" по разделу сметы ИЭИ`,
+    `Строка "Итого" по разделу сметы ОНЗТ`,
+    `Строка "Итого" по разделу сметы по форме 3П`
   ]
 
   private TotalList : string[] = [
-      `Строка "Итого"  календарного плана`,
-      `Строка "Итого" по коммерческому предложению`,
-      `Строка "Итого" сводной сметы`,
-      `Строка "Итого" сметы (2П)`,
-      `Строка "Итого" сметы ИИ по форме 2П`,
-      `Строка "Итого" сметы ИКИ`,
-      `Строка "Итого" сметы ИЭИ`,
-      `Строка "Итого" сметы ОНЗТ`,
-      `Строка "Итого" сметы по форме 3П`
+    `Строка "Итого"  календарного плана`,
+    `Строка "Итого" по коммерческому предложению`,
+    `Строка "Итого" сводной сметы`,
+    `Строка "Итого" сметы (2П)`,
+    `Строка "Итого" сметы ИИ по форме 2П`,
+    `Строка "Итого" сметы ИКИ`,
+    `Строка "Итого" сметы ИЭИ`,
+    `Строка "Итого" сметы ОНЗТ`,
+    `Строка "Итого" сметы по форме 3П`
 
 
   ]
@@ -225,9 +215,10 @@ export default class PirMain extends Vue {
   private possibleEntityTypes: any
 
 
-  entityCreated(data: any): any {
+  async entityCreated() {
     this.dialog = false;
-    return data;
+    this.closeEntityEditor()
+    await (this.$refs.mainTable as any).refresh();
   }
 
 
@@ -245,46 +236,66 @@ export default class PirMain extends Vue {
   async mountMainToolbar() {
     // Создаем группу кнопок для основной таблицы
     let mainTableToolbarGroup: RnToolbarGroup =
-      new RnToolbarGroup("Управление расценками", "MainTableGroup", [
-        {
-          Name: this.$t("Добавить") as string,
-          Icon: "mdi-plus",
-          Enabled: true,
-          Action: null,
-          Children: [
-            {
-              Name: this.$t("Сметная строка") as string,
-              Icon: "mdi-plus",
-              Enabled: await this.canCreate(),
-              Action: this.estimatedStringAdd
-            },
-            {
-              Name: this.$t("Строка итого по разделу") as string,
-              Icon: "mdi-plus",
-              Enabled: await this.canCreate(),
-              Action: this.totalWithinSectionAdd
-            },
-            {
-              Name: this.$t("Строка итого по смете") as string,
-              Icon: "mdi-plus",
-              Enabled: await this.canCreate(),
-              Action: this.totalAllAdd
-            },
-            {
-              Name: this.$t("Раздел") as string,
-              Icon: "mdi-plus",
-              Enabled: await this.canCreate(),
-              Action: this.AddSection
-            },
-          ],
-        },
-      ]);
+        new RnToolbarGroup("Управление расценками", "MainTableGroup", [
+          {
+            Name: this.$t("Раздел/Итого") as string,
+            Icon: "mdi-plus",
+            Enabled: true,
+            Action: null,
+            Children: [
+              {
+                Name: this.$t("Раздел расчёта стоим. эксп. ИИ") as string,
+                Icon: "mdi-plus",
+                Enabled: await this.getStringType("2 Инженерные изыскания"),
+                Action: this.AddSectionIIExpert
+              },
+              {
+                Name: this.$t("Раздел расчёта стоим. эксп. ПД") as string,
+                Icon: "mdi-plus",
+                Enabled: await this.getStringType("1 Проектные работы"),
+                Action: this.totalWithinSectionAdd
+              },
+              {
+                Name: this.$t("Стоимость экспертизы") as string,
+                Icon: "mdi-plus",
+                Enabled: await this.canCreate(),
+                Action: this.totalAllAdd
+              },
+              {
+                Name: this.$t("Строка \"Итого\" расчёта стоимости экспертизы") as string,
+                Icon: "mdi-plus",
+                Enabled: await this.canCreate(),
+                Action: this.AddSection
+              },
+            ],
+          },
+          {
+            Name: this.$t("Расценка") as string,
+            Icon: "mdi-plus",
+            Enabled: true,
+            Action: null,
+            Children: [
+              {
+                Name: this.$t("Строка ИИ") as string,
+                Icon: "mdi-plus",
+                Enabled: await this.canCreate(),
+                Action: this.AddIIString
+              },
+              {
+                Name: this.$t("Строка ПД") as string,
+                Icon: "mdi-plus",
+                Enabled: await this.canCreate(),
+                Action: this.AddPDString
+              },
+            ],
+          },
+        ]);
 
-     await (this.$refs.mainTable as any).mountToolbar(mainTableToolbarGroup);
+    await (this.$refs.mainTable as any).mountToolbar(mainTableToolbarGroup);
 
   }
 
- async DeleteEntity(){
+  async DeleteEntity(){
     let entityId = this.deleteEntityNodePath[this.deleteEntityNodePath.length - 1].EntityId
     await this.entityController.deleteEntityProtected(entityId, this.treeId, this.deleteEntityNodePath)
   }
@@ -311,7 +322,7 @@ export default class PirMain extends Vue {
 
     model.push(new VisualTreeNodePathModel(entityData.NodeId, entityData.EntityId,
         entityData.ParentNode.EntityId, null, entityData.Label))
-        model[model.length-1].Name = entityData.EntityName
+    model[model.length-1].Name = entityData.EntityName
     this.deleteEntityNodePath = this.$deepCopy(model) as VisualTreeNodePathModel[]
     this.emitNavigateDeep(model);
   }
@@ -429,10 +440,7 @@ export default class PirMain extends Vue {
 
   //------------ otherButtons ------------
 
-  // событие добавления раздела сметы
-  async sectionAdd() {
-    await this.showCard();
-  }
+
   //Необходимое событие
   emitNavigateDeep(nodePath: VisualTreeNodePathModel[]): void {
     this.$emit("navigateDeep", nodePath);
@@ -440,27 +448,35 @@ export default class PirMain extends Vue {
 
   // событие итого по разделу
   async totalWithinSectionAdd() {
-    await this.showCard();
+    await this.showCard("Раздел расчёта стоим. эксп. ПД", this.nodePath);
     this.dialog = true;
   }
 
   // событие итого по смете
   async totalAllAdd() {
-    await this.showCardTotal();
+    await this.showCard("Стоимость экспертизы", this.nodePath);
     this.dialog = true;
   }
 
   async AddSection(){
-    await this.showCardSection()
+    await this.showCard("Строка \"Итого\" расчёта стоимости экспертизы", this.nodePath)
     this.dialog = true;
   }
 
   // getEntityTypeID
-  async showCard(){
-
-    let totalName =  await this.giveSectionName(this.TotalSectionList, 0, this.entityTypeModelDown)
+  async showCard(totalName : string, selectedNodePath : VisualTreeNodePathModel[]){
+    this.possibleEntityTypes = await this.visualTreeController.GetEntityTypes(
+        this.treeId,
+        selectedNodePath
+    );
+    //let totalName =  "Раздел расчёта стоим. эксп. ИИ"
     let entityTypeNode  = this.possibleEntityTypes.data.Data.find(capt => capt.Caption == totalName)
-    this.showEntityEditorForCreation(entityTypeNode, this.entityTypeModelDown);
+    try {
+      this.showEntityEditorForCreation(entityTypeNode, selectedNodePath);
+    }
+    catch (e){
+      this.showError("Не выбран раздел")
+    }
   }
 
   async showCardSection(){
@@ -486,12 +502,28 @@ export default class PirMain extends Vue {
     });
   }
 
+  closeEntityEditor(){
+    this.formOptions = new GlobalDisplayFormParams({
+      DisplayType: 15,
+      Title: "test",
+      Data: EntityEditorData.EmptyData(),
+      TreeId: this.treeId,
+      CreatingNodeId: null,
+    });
+  }
+
 
   async showCardTotal(){
     let totalName =  await this.giveSectionName(this.TotalList, 1, this.nodePath)
     let entityTypeNode  = this.possibleEntityTypes.data.Data.find(capt => capt.Caption == totalName)
     this.showEntityEditorForCreation(entityTypeNode, this.nodePath);
   }
+
+
+
+  //------------ otherButtons ------------
+
+  //------------ MultiSelectTreeView ------------
 
   // триггер переключения модалки
   public treeDialogOpened: boolean = false;
@@ -517,45 +549,39 @@ export default class PirMain extends Vue {
     }
   }
   // событие добавления расценки через MultiSelectTreeView (tree)
-  async estimatedStringAdd() {
-    this.treeDialogOpened = await this.preparedDataForDialog();
+  async AddSectionIIExpert() {
+    await this.showCard("Раздел расчёта стоим. эксп. ИИ", this.nodePath)
+    this.dialog = true;
+
   }
 
-  // ждем выбора entityTypeNode
-  async preparedDataForDialog()
-  {
-    // TODO Пока что багает, чтобы работало, сначала надо нажать на любую
-    // TODO из трех других кнопок и тогда работает правильно.
-    // TODO Сделал эту штуку, чтобы игнорировать и не вызывать entityTypePicker
-    // TODO надо разобраться как navigate работает у дефолтного события добавления
-    // получаем массив возможных классов(сущностей) для создания
+  async AddIIString(){
+      await this.showCard("Строка расчёта работ ИИ", this.entityTypeModelDown)
+    this.dialog = true;
+  }
 
-    if(this.entityTypeModelDown == null){
-      this.$notification.Error("Необходимо выбрать раздел")
+  async AddPDString(){
+    await this.showCard("Строка расчёта работ ПР", this.entityTypeModelDown)
+    this.dialog = true;
+  }
+
+
+
+  closeDialog(){
+    this.dialog = false
+    this.closeEntityEditor()
+  }
+
+  async getStringType(caption : string){
+    let result = await this.getNode(this.nodePath)
+    let section = result.find(t=>t.Name == caption)
+    if(section!=null){
+      return false
     }
-
-
-    let sectionName = await this.giveSectionName(this.SectionList, 1, this.entityTypeModelDown)
-
-
-    // находим нужный id по Caption(Название класса)
-    this.entityTypeNode = this.possibleEntityTypes.data.Data.find(capt => capt.Caption == sectionName)
-    // получаем массив возможных nodeId классов(сущностей) для создания
-    // let nodes = await this.visualTreeController.GetMasterModel(
-    //     entityTypeNode.EntityTypeId,
-    //     this.treeId,
-    //     this.nodePath
-    // );
-    // console.log("nodes", nodes)
-    // передаем EntityEditorData для диалога (entityMasterModel)
-    this.dataForEntityModel = new EntityEditorData(this.entityTypeNode.EntityTypeId, null, this.entityTypeModelDown)
-    console.log("dataForEntityModel", this.dataForEntityModel)
-
-    // не уверен этот ли нужно передавать
-    this.entityTypeId = this.entityTypeNode.EntityTypeId
-
-    return true;
+    else return true
   }
+
+
 
   pushToModel(response: any){
 
@@ -743,7 +769,7 @@ export default class PirMain extends Vue {
     this.sortedAttributes = preparedAttributes;
   }
 
-  async giveSectionName(sections: string[], key: number, nodePath : VisualTreeNodePathModel[]){
+  async giveSectionName(sections: string, key: number, nodePath : VisualTreeNodePathModel[]){
 
     this.possibleEntityTypes = await this.visualTreeController.GetEntityTypes(
         this.treeId,

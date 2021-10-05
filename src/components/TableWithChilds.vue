@@ -13,7 +13,7 @@
         :workflowService="workflowService"
         :is-hide-folders="true"
         :cascade-mode="2"
-        :cascadeMaxDepth="1"
+        :cascadeMaxDepth="2"
         :cascade="true"
         :edit-mode="EditMode.InlineEditing"
         @rowClick="rowclick"
